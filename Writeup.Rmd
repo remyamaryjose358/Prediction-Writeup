@@ -1,0 +1,98 @@
+---
+title: "Writeup"
+author: "Remya Mary Jose"
+date: "21/08/2020"
+output: html_document
+---
+
+#Loading library
+```{r}
+library(e1071)
+library(caret)
+library(rpart)
+library(rpart.plot)
+library(rattle)
+library(randomForest)
+library(corrplot)
+```
+
+#Data
+```{r}
+setwd("C://Users//TEMP//Downloads")
+testing<-read.csv(file="pml-testing.csv",head=TRUE,sep=",")
+training<-read.csv(file="pml-training.csv",head=TRUE,sep=",")
+```
+
+#Data Processing
+```{r}
+inTrain  <- createDataPartition(training$classe, p=0.7, list=FALSE)
+TrainSet <- training[inTrain, ]
+TestSet  <- training[-inTrain, ]
+dim(TrainSet)
+dim(TestSet)
+```
+
+#Removing variables with Zero Variance
+```{r}
+n0var <- nearZeroVar(TrainSet)
+TrainSet <- TrainSet[, -n0var]
+TestSet  <- TestSet[, -n0var]
+dim(TrainSet)
+dim(TestSet)
+```
+
+#Removing variables with NA
+```{r}
+AllNA <- sapply(TrainSet, function(x) mean(is.na(x))) > 0.95
+TrainSet <- TrainSet[, AllNA==FALSE]
+TestSet <- TestSet[, AllNA==FALSE]
+dim(TrainSet)
+dim(TestSet)
+```
+
+
+```{r}
+TrainSet <- TrainSet[, -(1:5)]
+TestSet  <- TestSet[, -(1:5)]
+dim(TrainSet)
+dim(TestSet)
+```
+
+#Checking correlation
+```{r}
+M <- cor(TrainSet[, -54])
+corrplot(M, method="circle")
+```
+
+#Random Forest
+```{r}
+set.seed(3408)
+controlRF <- trainControl(method="cv", number=3, verboseIter=FALSE)
+modFitRandForest <- train(classe ~ ., data=TrainSet, method="rf",
+                          trControl=controlRF)
+modFitRandForest$finalModel
+
+#Prediction on Test data
+predictRandForest <- predict(modFitRandForest, newdata=TestSet)
+confMatRandForest <- confusionMatrix(predictRandForest, TestSet$classe)
+confMatRandForest
+
+```
+
+#Decision tree
+```{r}
+set.seed(3408)
+modFitDecTree <- rpart(classe ~ ., data=TrainSet, method="class")
+fancyRpartPlot(modFitDecTree)
+
+# Prediction on Test dataset
+predictDecTree <- predict(modFitDecTree, newdata=TestSet, type="class")
+confMatDecTree <- confusionMatrix(predictDecTree, TestSet$classe)
+confMatDecTree
+```
+
+# Applying the selected Model to the Test Data (Random Forest is selected because of higher accuracy)
+```{r}
+predictTEST <- predict(modFitRandForest, newdata=testing)
+predictTEST
+```
